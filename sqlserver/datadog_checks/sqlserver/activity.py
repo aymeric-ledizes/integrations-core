@@ -17,8 +17,12 @@ DEFAULT_COLLECTION_INTERVAL = 10
 MAX_PAYLOAD_BYTES = 19e6
 
 CONNECTIONS_QUERY = """\
-SELECT login_name AS user_name, COUNT(session_id) AS connections, status, DB_NAME(database_id) AS database_name
-    FROM sys.dm_exec_sessions
+SELECT 
+    login_name AS user_name,
+    COUNT(session_id) AS connections,
+    status,
+    DB_NAME(database_id) AS database_name
+FROM sys.dm_exec_sessions
     WHERE is_user_process = 1
     GROUP BY login_name, status, DB_NAME(database_id)
 """
@@ -44,6 +48,7 @@ FROM sys.dm_tran_active_transactions at
     LEFT OUTER JOIN sys.dm_exec_requests r
         ON c.connection_id = r.connection_id
         CROSS APPLY sys.dm_exec_sql_text(c.most_recent_sql_handle) text
+    WHERE sess.session_id != @@spid
     {extra_query_args}
 """,
 ).strip()
@@ -125,7 +130,7 @@ class SqlserverActivity(DBMAsyncJob):
         if self._activity_last_query_start:
             # do not re-read old stale connections unless they're idle, open transactions
             extra_query_args = (
-                " WHERE NOT (r.session_id is NULL AND DATEDIFF(second, at.transaction_begin_time, '{}') < {})".format(
+                " AND NOT (r.session_id is NULL AND DATEDIFF(second, at.transaction_begin_time, '{}') < {})".format(
                     self._activity_last_query_start, self.collection_interval
                 )
             )
