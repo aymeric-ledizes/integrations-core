@@ -327,7 +327,7 @@ class SqlserverStatementMetrics(DBMAsyncJob):
         self.log.debug("Running query [%s] %s", PLAN_LOOKUP_QUERY, (query_hash, query_plan_hash))
         query_hash_bytes = bytearray(binascii.unhexlify(query_hash))
         query_plan_hash_bytes = bytearray(binascii.unhexlify(query_plan_hash))
-        cursor.execute(PLAN_LOOKUP_QUERY, query_hash_bytes, query_plan_hash_bytes)
+        cursor.execute(PLAN_LOOKUP_QUERY, (query_hash_bytes, query_plan_hash_bytes))
         result = cursor.fetchall()
         if not result:
             self.log.debug("failed to loan plan, it must have just been expired out of the plan cache")
