@@ -83,7 +83,7 @@ def datadog_conn_docker(instance_docker):
 def bob_conn(instance_docker):
     # Make DB connection
     conn_str = 'DRIVER={};Server={};Database=master;UID={};PWD={};'.format(
-        instance_docker['driver'], instance_docker['host'], "bob", "hey-there-bob123"
+        instance_docker['driver'], instance_docker['host'], "bob", "Password12!"
     )
     conn = pyodbc.connect(conn_str, timeout=30)
     yield conn
