@@ -52,6 +52,13 @@ def instance_sql_defaults():
 
 
 @pytest.fixture
+def instance_sql_msoledb():
+    instance = deepcopy(INSTANCE_SQL_DEFAULTS)
+    instance['adoprovider'] = "MSOLEDBSQL"
+    return instance
+
+
+@pytest.fixture
 def instance_sql():
     return deepcopy(INSTANCE_SQL)
 

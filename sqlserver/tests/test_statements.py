@@ -14,7 +14,7 @@ from datadog_checks.sqlserver import SQLServer
 from datadog_checks.sqlserver.statements import SQL_SERVER_QUERY_METRICS_COLUMNS, obfuscate_xml_plan
 
 from .common import CHECK_NAME
-from .utils import not_windows_ci
+from .utils import not_windows_ci, windows_ci
 
 try:
     import pyodbc
@@ -36,6 +36,14 @@ def dbm_instance(instance_docker):
     # set a very small collection interval so the tests go fast
     instance_docker['query_metrics'] = {'enabled': True, 'run_sync': True, 'collection_interval': 0.1}
     return copy(instance_docker)
+
+
+@pytest.fixture
+def instance_sql_msoledb_dbm(instance_sql_msoledb):
+    instance_sql_msoledb['dbm'] = True
+    instance_sql_msoledb['min_collection_interval'] = 1
+    instance_sql_msoledb['query_metrics'] = {'enabled': True, 'run_sync': True, 'collection_interval': 0.1}
+    return instance_sql_msoledb
 
 
 @not_windows_ci
@@ -155,6 +163,138 @@ def test_statement_metrics_and_plans(
 
     expected_instance_tags = set(dbm_instance.get('tags', []))
     expected_instance_tags_with_db = set(dbm_instance.get('tags', [])) | {"db:{}".format(database)}
+
+    # dbm-metrics
+    dbm_metrics = aggregator.get_event_platform_events("dbm-metrics")
+    assert len(dbm_metrics) == 1, "should have collected exactly one dbm-metrics payload"
+    payload = dbm_metrics[0]
+    # host metadata
+    assert payload['sqlserver_version'].startswith("Microsoft SQL Server"), "invalid version"
+    assert payload['host'] == "stubbed.hostname", "wrong hostname"
+    assert set(payload['tags']) == expected_instance_tags, "wrong instance tags for dbm-metrics event"
+    assert type(payload['min_collection_interval']) in (float, int), "invalid min_collection_interval"
+    # metrics rows
+    sqlserver_rows = payload.get('sqlserver_rows', [])
+    assert sqlserver_rows, "should have collected some sqlserver query metrics rows"
+    matching_rows = [r for r in sqlserver_rows if re.match(match_pattern, r['text'], re.IGNORECASE)]
+    assert len(matching_rows) >= 1, "expected at least one matching metrics row"
+    total_execution_count = sum([r['execution_count'] for r in matching_rows])
+    assert total_execution_count == len(param_groups), "wrong execution count"
+    for row in matching_rows:
+        assert row['query_signature'], "missing query signature"
+        assert row['database_name'] == database, "incorrect database_name"
+        assert row['user_name'] == plan_user, "incorrect user_name"
+        for column in SQL_SERVER_QUERY_METRICS_COLUMNS:
+            assert column in row, "missing required metrics column {}".format(column)
+            assert type(row[column]) in (float, int), "wrong type for metrics column {}".format(column)
+
+    dbm_samples = aggregator.get_event_platform_events("dbm-samples")
+    assert dbm_samples, "should have collected at least one sample"
+
+    matching_samples = [s for s in dbm_samples if re.match(match_pattern, s['db']['statement'], re.IGNORECASE)]
+    assert matching_samples, "should have collected some matching samples"
+
+    # validate common host fields
+    for event in matching_samples:
+        assert event['host'] == "stubbed.hostname", "wrong hostname"
+        assert event['ddsource'] == "sqlserver", "wrong source"
+        assert event['ddagentversion'], "missing ddagentversion"
+        assert set(event['ddtags'].split(',')) == expected_instance_tags_with_db, "wrong instance tags for plan event"
+
+    plan_events = [s for s in dbm_samples if s['dbm_type'] == "plan"]
+    assert plan_events, "should have collected some plans"
+
+    for event in plan_events:
+        assert event['db']['plan']['definition'], "event plan definition missing"
+        parsed_plan = ET.fromstring(event['db']['plan']['definition'])
+        assert parsed_plan.tag.endswith("ShowPlanXML"), "plan does not match expected structure"
+
+    fqt_events = [s for s in dbm_samples if s['dbm_type'] == "fqt"]
+    assert fqt_events, "should have collected some FQT events"
+
+    # internal debug metrics
+    aggregator.assert_metric(
+        "dd.sqlserver.statements.collect_statement_metrics_and_plans.time",
+        tags=['agent_hostname:stubbed.hostname'] + _expected_dbm_instance_tags(dbm_instance),
+    )
+
+
+@windows_ci
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "database,plan_user,query,match_pattern,param_groups",
+    [
+        [
+            "datadog_test",
+            "dbo",
+            "SELECT * FROM things",
+            r"SELECT \* FROM things",
+            ((),),
+        ],
+        [
+            "datadog_test",
+            "dbo",
+            "SELECT * FROM things where id = ?",
+            r"\(@P1 \w+\)SELECT \* FROM things where id = @P1",
+            (
+                (1,),
+                (2,),
+                (3,),
+            ),
+        ],
+        [
+            "master",
+            None,
+            "SELECT * FROM datadog_test.dbo.things where id = ?",
+            r"\(@P1 \w+\)SELECT \* FROM datadog_test.dbo.things where id = @P1",
+            (
+                (1,),
+                (2,),
+                (3,),
+            ),
+        ],
+        [
+            "datadog_test",
+            "dbo",
+            "SELECT * FROM things where id = ? and name = ?",
+            r"\(@P1 \w+,@P2 (N)?VARCHAR\(\d+\)\)SELECT \* FROM things where id = @P1 and name = @P2",
+            (
+                (1, "hello"),
+                (2, "there"),
+                (3, "bill"),
+            ),
+        ],
+    ],
+)
+def test_statement_metrics_and_plans_windows(
+    aggregator,
+    dd_run_check,
+    instance_sql_msoledb_dbm,
+    bob_conn,
+    database,
+    plan_user,
+    query,
+    param_groups,
+    match_pattern,
+):
+    check = SQLServer(CHECK_NAME, {}, [instance_sql_msoledb_dbm])
+
+    with bob_conn.cursor() as cursor:
+        cursor.execute("USE {}".format(database))
+
+    def _run_test_queries():
+        with bob_conn.cursor() as cursor:
+            for params in param_groups:
+                cursor.execute(query, params)
+
+    _run_test_queries()
+    dd_run_check(check)
+    aggregator.reset()
+    _run_test_queries()
+    dd_run_check(check)
+
+    expected_instance_tags = set(instance_sql_msoledb_dbm.get('tags', []))
+    expected_instance_tags_with_db = set(instance_sql_msoledb_dbm.get('tags', [])) | {"db:{}".format(database)}
 
     # dbm-metrics
     dbm_metrics = aggregator.get_event_platform_events("dbm-metrics")
