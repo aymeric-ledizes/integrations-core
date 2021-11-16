@@ -39,6 +39,9 @@ SELECT
     DB_NAME(sess.database_id) as database_name,
     sess.status as session_status,
     text.text as text,
+    c.client_tcp_port as client_port,
+    c.client_net_address as client_address,
+    sess.host_name as host_name,
     r.*
 FROM sys.dm_tran_active_transactions at
     INNER JOIN sys.dm_tran_session_transactions st ON st.transaction_id = at.transaction_id
