@@ -37,11 +37,12 @@ SELECT
     at.transaction_state,
     sess.login_name as user_name,
     DB_NAME(sess.database_id) as database_name,
-    sess.status as session_status,
+    sess.status as status,
     text.text as text,
     c.client_tcp_port as client_port,
     c.client_net_address as client_address,
     sess.host_name as host_name,
+    sess.session_id as session_id,
     r.*
 FROM sys.dm_tran_active_transactions at
     INNER JOIN sys.dm_tran_session_transactions st ON st.transaction_id = at.transaction_id
@@ -51,7 +52,6 @@ FROM sys.dm_tran_active_transactions at
     LEFT OUTER JOIN sys.dm_exec_requests r
         ON c.connection_id = r.connection_id
         CROSS APPLY sys.dm_exec_sql_text(c.most_recent_sql_handle) text
-    WHERE sess.session_id != @@spid
     {extra_query_args}
 """,
 ).strip()
@@ -64,10 +64,6 @@ dm_exec_requests_exclude_keys = {
     'page_resource',
     'scheduler_id',
     'context_info',
-    # removed in favor of the session_status
-    # which is the same value, but will present
-    # for open, idle transactions as well
-    'status',
 }
 
 
@@ -133,7 +129,7 @@ class SqlserverActivity(DBMAsyncJob):
         if self._activity_last_query_start:
             # do not re-read old stale connections unless they're idle, open transactions
             extra_query_args = (
-                " AND NOT (r.session_id is NULL AND DATEDIFF(second, at.transaction_begin_time, '{}') < {})".format(
+                " WHERE NOT (r.session_id is NULL AND DATEDIFF(second, at.transaction_begin_time, '{}') < {})".format(
                     self._activity_last_query_start, self.collection_interval
                 )
             )
@@ -147,7 +143,7 @@ class SqlserverActivity(DBMAsyncJob):
         for row in rows:
             # if the self._activity_last_query_start query filter has not been set yet,
             # filter out all idle sessions so we don't collect them on the first loop iteration
-            if self._activity_last_query_start is None and row['session_status'] == "sleeping":
+            if self._activity_last_query_start is None and row['status'] == "sleeping":
                 continue
             try:
                 obfuscated_statement = datadog_agent.obfuscate_sql(row['text'])
@@ -186,12 +182,6 @@ class SqlserverActivity(DBMAsyncJob):
         if row['start_time'] is not None:
             if current_start is None or row['start_time'] > current_start:
                 current_start = row['start_time']
-        else:
-            # if start_time isn't set, this is an idle transaction
-            # we can set current_start to the tx begin time
-            # to prevent it from being collected again on the next loop iteration
-            if current_start is None or row['transaction_begin_time'] > current_start:
-                current_start = row['transaction_begin_time']
         return current_start
 
     def _create_activity_event(self, active_sessions, active_connections):
@@ -201,7 +191,7 @@ class SqlserverActivity(DBMAsyncJob):
             "ddsource": "sqlserver",
             "dbm_type": "activity",
             "collection_interval": self.collection_interval,
-            "ddtags": ",".join(self.check.tags),
+            "ddtags": self.check.tags,
             "timestamp": time.time() * 1000,
             "sqlserver_activity": active_sessions,
             "sqlserver_connections": active_connections,

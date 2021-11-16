@@ -74,7 +74,7 @@ def test_collect_activity(aggregator, instance_docker, dd_run_check, dbm_instanc
     assert first['dbm_type'] == "activity", "wrong dbm_type"
     assert first['ddsource'] == "sqlserver", "wrong source"
     assert first['ddagentversion'], "missing ddagentversion"
-    assert set(first['ddtags'].split(',')) == expected_instance_tags, "wrong instance tags activity"
+    assert set(first['ddtags']) == expected_instance_tags, "wrong instance tags activity"
     assert type(first['collection_interval']) in (float, int), "invalid collection_interval"
 
     assert len(first['sqlserver_activity']) > 0
@@ -90,7 +90,7 @@ def test_collect_activity(aggregator, instance_docker, dd_run_check, dbm_instanc
     # assert the data that was collected is correct
     assert bobs_row['user_name'] == "bob", "incorrect user_name"
     assert bobs_row['database_name'] == "datadog_test", "incorrect database_name"
-    assert bobs_row['session_status'] == "sleeping", "incorrect session_status"
+    assert bobs_row['status'] == "sleeping", "incorrect status"
     assert bobs_row['transaction_begin_time'], "missing tx begin time"
 
     assert len(first['sqlserver_connections']) > 0
@@ -124,21 +124,21 @@ def test_collect_activity(aggregator, instance_docker, dd_run_check, dbm_instanc
     [
         [
             [
-                {'session_status': 'suspended', 'text': "something", 'start_time': 2},
-                {'session_status': 'suspended', 'text': "something", 'start_time': 2, 'toobig': "shame" * 1000},
+                {'status': 'suspended', 'text': "something", 'start_time': 2},
+                {'status': 'suspended', 'text': "something", 'start_time': 2, 'toobig': "shame" * 1000},
             ],
             1,
         ],
         [
             [
-                {'session_status': 'suspended', 'text': "something", 'start_time': 2},
-                {'session_status': 'suspended', 'text': "something", 'start_time': 2},
+                {'status': 'suspended', 'text': "something", 'start_time': 2},
+                {'status': 'suspended', 'text': "something", 'start_time': 2},
             ],
             2,
         ],
         [
             [
-                {'session_status': 'suspended', 'text': "something", 'start_time': 2, 'toobig': "shame" * 1000},
+                {'status': 'suspended', 'text': "something", 'start_time': 2, 'toobig': "shame" * 1000},
             ],
             0,
         ],
