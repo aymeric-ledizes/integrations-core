@@ -227,7 +227,9 @@ def _get_warmup_conditions():
 
 def init_group_replication():
     logger.debug("initializing group replication")
-    import time; time.sleep(5)
+    import time
+
+    time.sleep(5)
     conns = [pymysql.connect(host=common.HOST, port=p, user='root', password='mypass') for p in common.PORTS_GROUP]
     _add_dog_user(conns[0])
     _add_bob_user(conns[0])
@@ -307,7 +309,9 @@ def init_master():
 
 @pytest.fixture
 def root_conn():
-    conn = pymysql.connect(host=common.HOST, port=common.PORT, user='root', password='mypass' if MYSQL_REPLICATION == 'group' else None)
+    conn = pymysql.connect(
+        host=common.HOST, port=common.PORT, user='root', password='mypass' if MYSQL_REPLICATION == 'group' else None
+    )
     yield conn
     conn.close()
 
@@ -351,7 +355,9 @@ def bob_conn():
 
 def populate_database():
     logger.debug("populating database")
-    conn = pymysql.connect(host=common.HOST, port=common.PORT, user='root', password='mypass' if MYSQL_REPLICATION == 'group' else None)
+    conn = pymysql.connect(
+        host=common.HOST, port=common.PORT, user='root', password='mypass' if MYSQL_REPLICATION == 'group' else None
+    )
 
     cur = conn.cursor()
 
