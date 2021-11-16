@@ -5,7 +5,7 @@ sqlcmd -Q "GRANT SELECT on sys.dm_os_performance_counters to datadog;"
 sqlcmd -Q "GRANT VIEW SERVER STATE to datadog;"
 sqlcmd -Q "GRANT CONNECT ANY DATABASE to datadog;"
 sqlcmd -Q "GRANT VIEW ANY DEFINITION to datadog;"
-sqlcmd -Q "CREATE LOGIN bob WITH PASSWORD = 'hey-there-bob123';"
+sqlcmd -Q "CREATE LOGIN bob WITH PASSWORD = 'Password12!';"
 sqlcmd -Q "CREATE USER bob FOR LOGIN bob;"
 sqlcmd -Q "GRANT CONNECT ANY DATABASE to bob;"
 
