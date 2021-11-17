@@ -24,7 +24,7 @@ def compute_sql_signature(normalized_query):
         return None
     # Note: please be cautious when changing this function as some features rely on this
     # hash matching the APM resource hash generated on our backend.
-    return binascii.hexlify(mmh3.hash_bytes(normalized_query)[0:8])
+    return binascii.hexlify(mmh3.hash64(normalized_query)[0].to_bytes(8, byteorder='big'))
 
 
 def normalize_query_tag(query):
