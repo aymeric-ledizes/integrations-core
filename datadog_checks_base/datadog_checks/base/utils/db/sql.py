@@ -9,6 +9,7 @@ import binascii
 import mmh3
 
 from datadog_checks.base.utils.serialization import json, sort_keys_kwargs
+from datadog_checks.base.utils.common import to_native_string
 
 # Unicode character "Arabic Decimal Separator" (U+066B) is a character which looks like an ascii
 # comma, but is not treated like a comma when parsing metrics tags. This is used to replace
@@ -24,7 +25,9 @@ def compute_sql_signature(normalized_query):
         return None
     # Note: please be cautious when changing this function as some features rely on this
     # hash matching the APM resource hash generated on our backend.
-    return binascii.hexlify(mmh3.hash64(normalized_query)[0].to_bytes(8, byteorder='big'))
+    normalized_query = 'select * from dogs'
+    return binascii.hexlify(to_native_string(reversed(mmh3.hash_bytes(normalized_query)[0:8])))
+    return format(mmh3.hash_bytes(normalized_query)[0], 'x')
 
 
 def normalize_query_tag(query):
