@@ -347,7 +347,7 @@ def test_statement_metrics_and_plans_windows(
     # internal debug metrics
     aggregator.assert_metric(
         "dd.sqlserver.statements.collect_statement_metrics_and_plans.time",
-        tags=['agent_hostname:stubbed.hostname'] + _expected_dbm_instance_tags(dbm_instance),
+        tags=['agent_hostname:stubbed.hostname'] + _expected_dbm_instance_tags(instance_sql_msoledb_dbm),
     )
 
 
