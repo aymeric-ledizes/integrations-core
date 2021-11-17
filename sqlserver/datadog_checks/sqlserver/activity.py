@@ -36,13 +36,13 @@ SELECT
     at.transaction_type,
     at.transaction_state,
     sess.login_name as user_name,
+    sess.session_id as id,
     DB_NAME(sess.database_id) as database_name,
     sess.status as session_status,
     text.text as text,
     c.client_tcp_port as client_port,
     c.client_net_address as client_address,
     sess.host_name as host_name,
-    sess.session_id as session_id,
     r.*
 FROM sys.dm_tran_active_transactions at
     INNER JOIN sys.dm_tran_session_transactions st ON st.transaction_id = at.transaction_id
@@ -67,6 +67,8 @@ dm_exec_requests_exclude_keys = {
 
     # remove status in favor of session_status
     'status',
+    # remove session_id in favor of id
+    'session_id',
 }
 
 

@@ -91,6 +91,7 @@ def test_collect_activity(aggregator, instance_docker, dd_run_check, dbm_instanc
     assert bobs_row['user_name'] == "bob", "incorrect user_name"
     assert bobs_row['database_name'] == "datadog_test", "incorrect database_name"
     assert bobs_row['session_status'] == "sleeping", "incorrect session_status"
+    assert bobs_row['id'], "missing session id"
     assert bobs_row['transaction_begin_time'], "missing tx begin time"
 
     assert len(first['sqlserver_connections']) > 0
