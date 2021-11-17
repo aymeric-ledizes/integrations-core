@@ -17,7 +17,7 @@ DEFAULT_COLLECTION_INTERVAL = 10
 MAX_PAYLOAD_BYTES = 19e6
 
 CONNECTIONS_QUERY = """\
-SELECT 
+SELECT
     login_name AS user_name,
     COUNT(session_id) AS connections,
     status,
