@@ -37,7 +37,7 @@ SELECT
     at.transaction_state,
     sess.login_name as user_name,
     DB_NAME(sess.database_id) as database_name,
-    sess.status as status,
+    sess.status as session_status,
     text.text as text,
     c.client_tcp_port as client_port,
     c.client_net_address as client_address,
@@ -64,6 +64,9 @@ dm_exec_requests_exclude_keys = {
     'page_resource',
     'scheduler_id',
     'context_info',
+
+    # remove status in favor of session_status
+    'status',
 }
 
 
@@ -143,7 +146,7 @@ class SqlserverActivity(DBMAsyncJob):
         for row in rows:
             # if the self._activity_last_query_start query filter has not been set yet,
             # filter out all idle sessions so we don't collect them on the first loop iteration
-            if self._activity_last_query_start is None and row['status'] == "sleeping":
+            if self._activity_last_query_start is None and row['session_status'] == "sleeping":
                 continue
             try:
                 obfuscated_statement = datadog_agent.obfuscate_sql(row['text'])

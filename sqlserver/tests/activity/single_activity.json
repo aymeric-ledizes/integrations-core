@@ -5,7 +5,7 @@
     "transaction_state": 2,
     "user_name": "bob",
     "database_name": "master",
-    "status": "running",
+    "session_status": "running",
     "text": "select * from my_special.table;",
     "session_id": 83,
     "request_id": 0,

@@ -90,7 +90,7 @@ def test_collect_activity(aggregator, instance_docker, dd_run_check, dbm_instanc
     # assert the data that was collected is correct
     assert bobs_row['user_name'] == "bob", "incorrect user_name"
     assert bobs_row['database_name'] == "datadog_test", "incorrect database_name"
-    assert bobs_row['status'] == "sleeping", "incorrect status"
+    assert bobs_row['session_status'] == "sleeping", "incorrect session_status"
     assert bobs_row['transaction_begin_time'], "missing tx begin time"
 
     assert len(first['sqlserver_connections']) > 0
@@ -124,21 +124,21 @@ def test_collect_activity(aggregator, instance_docker, dd_run_check, dbm_instanc
     [
         [
             [
-                {'status': 'suspended', 'text': "something", 'start_time': 2},
-                {'status': 'suspended', 'text': "something", 'start_time': 2, 'toobig': "shame" * 1000},
+                {'session_status': 'suspended', 'text': "something", 'start_time': 2},
+                {'session_status': 'suspended', 'text': "something", 'start_time': 2, 'toobig': "shame" * 1000},
             ],
             1,
         ],
         [
             [
-                {'status': 'suspended', 'text': "something", 'start_time': 2},
-                {'status': 'suspended', 'text': "something", 'start_time': 2},
+                {'session_status': 'suspended', 'text': "something", 'start_time': 2},
+                {'session_status': 'suspended', 'text': "something", 'start_time': 2},
             ],
             2,
         ],
         [
             [
-                {'status': 'suspended', 'text': "something", 'start_time': 2, 'toobig': "shame" * 1000},
+                {'session_status': 'suspended', 'text': "something", 'start_time': 2, 'toobig': "shame" * 1000},
             ],
             0,
         ],
