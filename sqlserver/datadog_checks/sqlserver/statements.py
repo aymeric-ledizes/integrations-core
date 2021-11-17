@@ -1,5 +1,4 @@
 import binascii
-import os
 import time
 import xml.etree.ElementTree as ET
 
@@ -60,7 +59,7 @@ PLAN_LOOKUP_QUERY = """\
 select cast(query_plan as varchar(max)) as query_plan from sys.dm_exec_query_stats
     cross apply sys.dm_exec_query_plan(plan_handle)
 where
-    query_hash = ? and query_plan_hash = ?
+    query_hash = CONVERT(varbinary(max), ?, 1) and query_plan_hash = CONVERT(varbinary(max), ?, 1)
 """
 
 
@@ -326,13 +325,7 @@ class SqlserverStatementMetrics(DBMAsyncJob):
     def _load_plan(self, query_hash, query_plan_hash, cursor):
         self.log.debug("collecting plan. query_hash=%s query_plan_hash=%s", query_hash, query_plan_hash)
         self.log.debug("Running query [%s] %s", PLAN_LOOKUP_QUERY, (query_hash, query_plan_hash))
-        if "DOBYTES" in os.environ:
-            query_hash_bytes = bytearray(binascii.unhexlify(query_hash))
-            query_plan_hash_bytes = bytearray(binascii.unhexlify(query_plan_hash))
-        else:
-            query_hash_bytes = binascii.unhexlify(query_hash)
-            query_plan_hash_bytes = binascii.unhexlify(query_plan_hash)
-        cursor.execute(PLAN_LOOKUP_QUERY, (query_hash_bytes, query_plan_hash_bytes))
+        cursor.execute(PLAN_LOOKUP_QUERY, ("0x" + query_hash, "0x" + query_plan_hash))
         result = cursor.fetchall()
         if not result:
             self.log.debug("failed to loan plan, it must have just been expired out of the plan cache")
