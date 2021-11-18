@@ -64,7 +64,6 @@ dm_exec_requests_exclude_keys = {
     'page_resource',
     'scheduler_id',
     'context_info',
-
     # remove status in favor of session_status
     'status',
     # remove session_id in favor of id
@@ -134,10 +133,9 @@ class SqlserverActivity(DBMAsyncJob):
         if self._activity_last_query_start:
             # do not re-read old stale connections unless they're idle, open transactions
             extra_query_args = (
-                " WHERE NOT (r.session_id is NULL AND DATEDIFF(second, at.transaction_begin_time, '{}') < {})".format(
-                    self._activity_last_query_start, self.collection_interval
-                )
-            )
+                " WHERE NOT (sess.status = 'sleeping' AND "
+                "DATEDIFF(second, at.transaction_begin_time, GETDATE()) < {})"
+            ).format(self.collection_interval)
         # order results by tx begin time to get longest running transactions first.
         extra_query_args = extra_query_args + " ORDER BY at.transaction_begin_time ASC"
         return extra_query_args
